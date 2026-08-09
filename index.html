@@ -174,6 +174,10 @@ nav{
   display:flex;align-items:center;justify-content:center;font-family:'Jua';
 }
 .memo-box{background:var(--butter);border-radius:12px;padding:12px 14px;font-size:14px;line-height:1.55;word-break:keep-all}
+.recipe-box{
+  background:var(--card);border:1.5px solid var(--line);border-radius:14px;
+  padding:16px;font-size:14.5px;line-height:1.7;white-space:pre-wrap;word-break:keep-all;
+}
 .detail-actions{display:flex;gap:10px;margin-top:22px}
 
 /* ───── 버튼/폼 ───── */
@@ -369,7 +373,7 @@ function render(){
     .filter(r => tab==='mine' ? r.nickname===nickname : r.public)
     .filter(r => {
       if(!q) return true;
-      const hay = (r.title+' '+(r.ingredients||[]).join(' ')+' '+(r.nickname||'')).toLowerCase();
+      const hay = (r.title+' '+(r.content||'')+' '+(r.nickname||'')).toLowerCase();
       return hay.includes(q);
     })
     .sort((a,b) => a.title.localeCompare(b.title,'ko') || (b.createdAt||0)-(a.createdAt||0));
@@ -381,7 +385,7 @@ function render(){
       <h3 class="jua">${esc(r.title)}</h3>
       <div class="meta">
         <span class="badge">${esc(r.nickname||'?')}</span>
-        ${(r.ingredients||[]).length ? `<span class="badge gray">재료 ${r.ingredients.length}</span>` : ''}
+        ${r.source && r.source!=='미상' ? `<span class="badge gray">${esc(r.source.length>10 ? r.source.slice(0,10)+'…' : r.source)}</span>` : ''}
         ${tab==='mine' && !r.public ? '<span class="badge lock">🔒 비공개</span>' : ''}
       </div>
     </div>`).join('');
@@ -460,17 +464,20 @@ async function extract(){
       <p>레시피를 요리조리 읽는 중...<br><span style="font-size:12.5px;font-weight:400;color:var(--brown-soft)">10~20초 정도 걸려요</span></p>
     </div>`;
   try{
+    if(!GAS_URL.startsWith('https://script.google.com')) throw new Error('GAS_URL이 설정되지 않았어요');
     const res = await fetch(GAS_URL, {
       method:'POST',
       headers:{'Content-Type':'text/plain;charset=utf-8'},  // preflight 회피
       body: JSON.stringify({ images: pendingImages })
     });
+    if(!res.ok) throw new Error('서버 응답 오류 ' + res.status);
     const out = await res.json();
     if(out.error) throw new Error(out.error);
+    if(!out.title) throw new Error('추출 결과가 비어있어요');
     showForm(out);
   }catch(e){
-    toast('앗, 읽기에 실패했어요 🥲 직접 입력으로 열게요');
-    showForm();
+    toast('읽기 실패: ' + (e.message||e).toString().slice(0,60));
+    setTimeout(()=>showForm(), 1800);
   }
 }
 
@@ -481,11 +488,8 @@ function showForm(data={}, id=null){
   const v = {
     title: data.title ?? r.title ?? '',
     emoji: data.emoji ?? r.emoji ?? '🍽️',
-    source: data.source ?? r.source ?? '',
-    sourceUrl: data.sourceUrl ?? r.sourceUrl ?? '',
-    ingredients: (data.ingredients ?? r.ingredients ?? []).join('\n'),
-    steps: (data.steps ?? r.steps ?? []).join('\n'),
-    memo: data.memo ?? r.memo ?? '',
+    source: data.source ?? r.source ?? '미상',
+    content: data.content ?? r.content ?? '',
     pub: id ? !!r.public : true,
   };
   document.getElementById('addBody').innerHTML = `
@@ -498,21 +502,10 @@ function showForm(data={}, id=null){
       </div>
     </div>
     <div class="field"><label>출처</label>
-      <input id="fSource" value="${esc(v.source)}" placeholder="예) 인스타 @cooking_haru">
+      <input id="fSource" value="${esc(v.source)}" placeholder="안 보이면 '미상'">
     </div>
-    <div class="field"><label>출처 링크 <span style="font-weight:400;color:var(--brown-soft)">(선택)</span></label>
-      <input id="fSourceUrl" value="${esc(v.sourceUrl)}" placeholder="https://...">
-    </div>
-    <div class="field"><label>재료</label>
-      <textarea id="fIng" rows="5" placeholder="한 줄에 하나씩!&#10;예)&#10;스파게티면 200g&#10;생크림 1컵">${esc(v.ingredients)}</textarea>
-      <p class="hint">한 줄에 재료 하나씩 적어주세요</p>
-    </div>
-    <div class="field"><label>만드는 법</label>
-      <textarea id="fSteps" rows="7" placeholder="한 줄에 한 단계씩!">${esc(v.steps)}</textarea>
-      <p class="hint">한 줄에 한 단계씩 — 번호는 자동으로 붙어요</p>
-    </div>
-    <div class="field"><label>메모 <span style="font-weight:400;color:var(--brown-soft)">(선택)</span></label>
-      <input id="fMemo" value="${esc(v.memo)}" placeholder="나만의 팁이나 느낌">
+    <div class="field"><label>레시피 내용</label>
+      <textarea id="fContent" rows="12" placeholder="재료, 만드는 법 등 자유롭게!">${esc(v.content)}</textarea>
     </div>
     <div class="toggle-row">
       <div><div class="t-label">🌸 모두에게 공개</div><div class="t-sub">끄면 나만 볼 수 있어요</div></div>
@@ -532,11 +525,8 @@ function save(){
     nickname,
     title,
     emoji: document.getElementById('fEmoji').value.trim() || '🍽️',
-    source: document.getElementById('fSource').value.trim(),
-    sourceUrl: document.getElementById('fSourceUrl').value.trim(),
-    ingredients: document.getElementById('fIng').value.split('\n').map(s=>s.trim()).filter(Boolean),
-    steps: document.getElementById('fSteps').value.split('\n').map(s=>s.trim()).filter(Boolean),
-    memo: document.getElementById('fMemo').value.trim(),
+    source: document.getElementById('fSource').value.trim() || '미상',
+    content: document.getElementById('fContent').value.trim(),
     public: document.getElementById('fPub').checked,
     createdAt: editingId ? (recipes[editingId].createdAt||Date.now()) : Date.now(),
   };
@@ -556,20 +546,10 @@ function openDetail(id){
     <div style="text-align:center;font-size:48px;margin-bottom:6px">${r.emoji||'🍽️'}</div>
     <h2 class="jua">${esc(r.title)}</h2>
     <p class="sub">by ${esc(r.nickname||'?')} ${r.public?'':' · 🔒 비공개'}</p>
-    ${r.source||r.sourceUrl ? `<div class="center">${
-      r.sourceUrl
-        ? `<a class="src-link" href="${esc(r.sourceUrl)}" target="_blank" rel="noopener">🔗 ${esc(r.source||'출처 보기')}</a>`
-        : `<span class="src-link">📌 ${esc(r.source)}</span>`
-    }</div>` : ''}
-    ${(r.ingredients||[]).length ? `
-      <div class="sec-title jua">🧺 재료 <span style="font-size:12px;color:var(--brown-soft);font-family:Pretendard">눌러서 체크!</span></div>
-      <ul class="ing-list">${r.ingredients.map(i=>`
-        <li onclick="this.classList.toggle('done')"><span class="chk">✓</span><span>${esc(i)}</span></li>`).join('')}
-      </ul>` : ''}
-    ${(r.steps||[]).length ? `
-      <div class="sec-title jua">🍳 만드는 법</div>
-      <ol class="step-list">${r.steps.map(s=>`<li>${esc(s)}</li>`).join('')}</ol>` : ''}
-    ${r.memo ? `<div class="sec-title jua">💌 메모</div><div class="memo-box">${esc(r.memo)}</div>` : ''}
+    <div class="center"><span class="src-link">📌 ${esc(r.source||'미상')}</span></div>
+    ${r.content ? `
+      <div class="sec-title jua">🍳 레시피</div>
+      <div class="recipe-box">${esc(r.content)}</div>` : ''}
     <div class="detail-actions">
       ${mine ? `
         <button class="btn danger" onclick="removeRecipe('${id}')">🗑️</button>
