@@ -128,7 +128,9 @@ nav{
 .sheet-bg.show{display:flex}
 .sheet{
   background:var(--cream);width:100%;max-width:640px;
-  border-radius:26px 26px 0 0;max-height:92vh;overflow-y:auto;
+  border-radius:26px 26px 0 0;
+  max-height:88vh;max-height:88dvh;
+  overflow-y:auto;-webkit-overflow-scrolling:touch;
   padding:10px 20px calc(28px + env(safe-area-inset-bottom));
   animation:up .25s ease;
 }
@@ -148,16 +150,16 @@ nav{
   font-size:16px;color:var(--pink-deep);margin:20px 0 10px;
   display:flex;align-items:center;gap:6px;
 }
-.ing-list{list-style:none}
+.ing-list{list-style:none;display:grid;grid-template-columns:1fr 1fr;gap:7px}
 .ing-list li{
   background:var(--card);border:1.5px solid var(--line);border-radius:12px;
-  padding:11px 14px;margin-bottom:7px;font-size:14.5px;
-  display:flex;align-items:center;gap:10px;cursor:pointer;
+  padding:9px 10px;font-size:13.5px;line-height:1.35;
+  display:flex;align-items:center;gap:8px;cursor:pointer;word-break:keep-all;
 }
 .ing-list li .chk{
-  width:20px;height:20px;border-radius:7px;border:2px solid var(--pink);
+  width:18px;height:18px;border-radius:6px;border:2px solid var(--pink);
   flex-shrink:0;display:flex;align-items:center;justify-content:center;
-  font-size:12px;color:#fff;transition:.12s;
+  font-size:11px;color:#fff;transition:.12s;
 }
 .ing-list li.done .chk{background:var(--pink)}
 .ing-list li.done span{text-decoration:line-through;color:#C9B5AB}
@@ -302,30 +304,17 @@ nav{
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="config.js"></script>
 <script>
 /* ═══════════════════════════════════════════
-   ⚙️ 설정 — 여기 두 개만 채우면 끝!
-   1) firebaseConfig: firebaseConfig = {
-  apiKey: "AIzaSyDKesplzevsXQiJ2PAOTJ7lLbdnAv7Ux1A",
-  authDomain: "recipe-4cef2.firebaseapp.com",
-  databaseURL: "https://recipe-4cef2-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "recipe-4cef2",
-  storageBucket: "recipe-4cef2.firebasestorage.app",
-  messagingSenderId: "77186415183",
-  appId: "1:77186415183:web:720589a308fbed03a0083a"
-};
-   2) GAS_URL: https://script.google.com/macros/s/AKfycbxijLrYhsr7t7hF-8ql0_2Jq_2oY1H8xARspPeWcxu3W8IsKEGVNfTKnSmcWLt3d8y8Nw/exec
+   설정은 config.js 파일에! (이 파일은 건드릴 필요 없음)
 ═══════════════════════════════════════════ */
-const firebaseConfig = {
-  apiKey: "AIzaSyDKesplzevsXQiJ2PAOTJ7lLbdnAv7Ux1A",
-  authDomain: "recipe-4cef2.firebaseapp.com",
-  databaseURL: "https://recipe-4cef2-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "recipe-4cef2",
-  storageBucket: "recipe-4cef2.firebasestorage.app",
-  messagingSenderId: "77186415183",
-  appId: "1:77186415183:web:720589a308fbed03a0083a"
-};
-const GAS_URL = "https://script.google.com/macros/s/AKfycbxijLrYhsr7t7hF-8ql0_2Jq_2oY1H8xARspPeWcxu3W8IsKEGVNfTKnSmcWLt3d8y8Nw/exec";
+if (typeof RS_CONFIG === 'undefined') {
+  document.body.innerHTML = '<div style="padding:60px 30px;text-align:center;font-family:sans-serif;color:#5C4A42"><div style="font-size:50px">🥲</div><h2>config.js 파일이 없어요</h2><p style="margin-top:10px;line-height:1.6">recipe.html과 같은 위치에<br>config.js를 올려주세요!</p></div>';
+  throw new Error('config.js not found');
+}
+const firebaseConfig = RS_CONFIG.firebase;
+const GAS_URL = RS_CONFIG.gasUrl;
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
@@ -376,7 +365,7 @@ function render(){
     .filter(r => tab==='mine' ? r.nickname===nickname : r.public)
     .filter(r => {
       if(!q) return true;
-      const hay = (r.title+' '+(r.content||'')+' '+(r.nickname||'')).toLowerCase();
+      const hay = (r.title+' '+(r.ingredients||[]).join(' ')+' '+(r.content||'')+' '+(r.nickname||'')).toLowerCase();
       return hay.includes(q);
     })
     .sort((a,b) => a.title.localeCompare(b.title,'ko') || (b.createdAt||0)-(a.createdAt||0));
@@ -408,6 +397,7 @@ function openAdd(){
   pendingImages = [];
   showUploadStep();
   document.getElementById('addSheet').classList.add('show');
+  document.querySelector('#addSheet .sheet').scrollTop = 0;
 }
 function closeAdd(){ document.getElementById('addSheet').classList.remove('show'); }
 
@@ -425,6 +415,11 @@ function showUploadStep(){
       <button class="btn ghost" onclick="closeAdd()">닫기</button>
       <button class="btn pink" id="extractBtn" disabled onclick="extract()">✨ 레시피 뽑아내기</button>
     </div>
+    <p class="or-line">─ 링크가 있다면 (인스타는 안 돼요!) ─</p>
+    <div class="field" style="margin-bottom:10px">
+      <input id="urlInput" placeholder="🔗 블로그/레시피 페이지 주소 붙여넣기" inputmode="url">
+    </div>
+    <div class="center"><button class="btn ghost" style="flex:0 0 auto;padding:12px 26px" onclick="extractUrl()">🔗 링크로 가져오기</button></div>
     <p class="or-line">─ 캡쳐 없이 직접 쓰고 싶다면 ─</p>
     <div class="center"><button class="btn ghost" style="flex:0 0 auto;padding:12px 26px" onclick="showForm()">✏️ 직접 입력하기</button></div>
   `;
@@ -460,7 +455,18 @@ function compressImage(file){
   });
 }
 
+function extractUrl(){
+  const url = document.getElementById('urlInput').value.trim();
+  if(!url){ toast('링크를 먼저 붙여넣어 주세요!'); return; }
+  if(!/^https?:\/\//.test(url)){ toast('http로 시작하는 전체 주소를 넣어주세요!'); return; }
+  runExtract({ url });
+}
+
 async function extract(){
+  runExtract({ images: pendingImages });
+}
+
+async function runExtract(payload){
   document.getElementById('addBody').innerHTML = `
     <div class="loading">
       <span class="spin">🍳</span>
@@ -471,7 +477,7 @@ async function extract(){
     const res = await fetch(GAS_URL, {
       method:'POST',
       headers:{'Content-Type':'text/plain;charset=utf-8'},  // preflight 회피
-      body: JSON.stringify({ images: pendingImages })
+      body: JSON.stringify(payload)
     });
     if(!res.ok) throw new Error('서버 응답 오류 ' + res.status);
     const out = await res.json();
@@ -492,7 +498,9 @@ function showForm(data={}, id=null){
     title: data.title ?? r.title ?? '',
     emoji: data.emoji ?? r.emoji ?? '🍽️',
     source: data.source ?? r.source ?? '미상',
-    content: data.content ?? r.content ?? '',
+    ingredients: (data.ingredients ?? r.ingredients ?? []).join('\n'),
+    // 예전 통짜 저장분(content)은 만드는 법 칸으로 불러옴
+    steps: (data.steps ?? r.steps ?? (r.content ? r.content.split('\n') : [])).join('\n'),
     pub: id ? !!r.public : true,
   };
   document.getElementById('addBody').innerHTML = `
@@ -507,8 +515,13 @@ function showForm(data={}, id=null){
     <div class="field"><label>출처</label>
       <input id="fSource" value="${esc(v.source)}" placeholder="안 보이면 '미상'">
     </div>
-    <div class="field"><label>레시피 내용</label>
-      <textarea id="fContent" rows="12" placeholder="재료, 만드는 법 등 자유롭게!">${esc(v.content)}</textarea>
+    <div class="field"><label>재료</label>
+      <textarea id="fIng" rows="6" placeholder="한 줄에 하나씩!&#10;예)&#10;스파게티면 200g&#10;생크림 1컵">${esc(v.ingredients)}</textarea>
+      <p class="hint">한 줄에 하나씩 — 보기 화면에서 체크리스트가 돼요</p>
+    </div>
+    <div class="field"><label>만드는 법</label>
+      <textarea id="fSteps" rows="8" placeholder="한 줄에 한 단계씩!">${esc(v.steps)}</textarea>
+      <p class="hint">한 줄에 한 단계씩 — 번호는 자동으로 붙어요</p>
     </div>
     <div class="toggle-row">
       <div><div class="t-label">🌸 모두에게 공개</div><div class="t-sub">끄면 나만 볼 수 있어요</div></div>
@@ -529,7 +542,8 @@ function save(){
     title,
     emoji: document.getElementById('fEmoji').value.trim() || '🍽️',
     source: document.getElementById('fSource').value.trim() || '미상',
-    content: document.getElementById('fContent').value.trim(),
+    ingredients: document.getElementById('fIng').value.split('\n').map(s=>s.trim()).filter(Boolean),
+    steps: document.getElementById('fSteps').value.split('\n').map(s=>s.trim()).filter(Boolean),
     public: document.getElementById('fPub').checked,
     createdAt: editingId ? (recipes[editingId].createdAt||Date.now()) : Date.now(),
   };
@@ -550,7 +564,15 @@ function openDetail(id){
     <h2 class="jua">${esc(r.title)}</h2>
     <p class="sub">by ${esc(r.nickname||'?')} ${r.public?'':' · 🔒 비공개'}</p>
     <div class="center"><span class="src-link">📌 ${esc(r.source||'미상')}</span></div>
-    ${r.content ? `
+    ${(r.ingredients||[]).length ? `
+      <div class="sec-title jua">🧺 재료 <span style="font-size:12px;color:var(--brown-soft);font-family:Pretendard">눌러서 체크!</span></div>
+      <ul class="ing-list">${r.ingredients.map(i=>`
+        <li onclick="this.classList.toggle('done')"><span class="chk">✓</span><span>${esc(i)}</span></li>`).join('')}
+      </ul>` : ''}
+    ${(r.steps||[]).length ? `
+      <div class="sec-title jua">🍳 만드는 법</div>
+      <ol class="step-list">${r.steps.map(s=>`<li>${esc(s)}</li>`).join('')}</ol>` : ''}
+    ${!((r.ingredients||[]).length) && !((r.steps||[]).length) && r.content ? `
       <div class="sec-title jua">🍳 레시피</div>
       <div class="recipe-box">${esc(r.content)}</div>` : ''}
     <div class="detail-actions">
@@ -560,6 +582,7 @@ function openDetail(id){
       <button class="btn pink" onclick="closeDetail()">닫기</button>
     </div>`;
   document.getElementById('detailSheet').classList.add('show');
+  document.querySelector('#detailSheet .sheet').scrollTop = 0;
 }
 function closeDetail(){ document.getElementById('detailSheet').classList.remove('show'); }
 
@@ -579,6 +602,44 @@ function toast(msg){
 /* 시트 바깥 누르면 닫기 */
 document.getElementById('addSheet').addEventListener('click', e=>{ if(e.target.id==='addSheet') closeAdd(); });
 document.getElementById('detailSheet').addEventListener('click', e=>{ if(e.target.id==='detailSheet') closeDetail(); });
+
+/* 아래로 스와이프하면 닫기 */
+function makeSwipeClose(bgId, closeFn){
+  const bg = document.getElementById(bgId);
+  const sheet = bg.querySelector('.sheet');
+  let startY = 0, dragY = 0, dragging = false;
+
+  sheet.addEventListener('touchstart', e=>{
+    // 시트 내용이 맨 위로 스크롤된 상태에서만 끌기 시작
+    if(sheet.scrollTop > 0) return;
+    startY = e.touches[0].clientY;
+    dragging = true; dragY = 0;
+    sheet.style.transition = 'none';
+  }, {passive:true});
+
+  sheet.addEventListener('touchmove', e=>{
+    if(!dragging) return;
+    dragY = e.touches[0].clientY - startY;
+    if(dragY > 0){
+      sheet.style.transform = 'translateY(' + dragY + 'px)';
+    }
+  }, {passive:true});
+
+  sheet.addEventListener('touchend', ()=>{
+    if(!dragging) return;
+    dragging = false;
+    sheet.style.transition = 'transform .22s ease';
+    if(dragY > 110){
+      sheet.style.transform = 'translateY(100%)';
+      setTimeout(()=>{ closeFn(); sheet.style.transform = ''; sheet.style.transition = ''; }, 200);
+    } else {
+      sheet.style.transform = '';
+      setTimeout(()=>{ sheet.style.transition = ''; }, 250);
+    }
+  });
+}
+makeSwipeClose('addSheet', closeAdd);
+makeSwipeClose('detailSheet', closeDetail);
 
 updateNickChip();
 if(!nickname) setTimeout(()=>askNickname(false), 600);
