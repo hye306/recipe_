@@ -304,6 +304,12 @@ nav{
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script>
+window.onerror = function(msg, url, line, col, error) {
+  document.body.innerHTML = '<div style="padding:40px 20px;font-family:sans-serif;color:#5C4A42;word-break:break-all;line-height:1.6"><h2>⚠️ 에러 발생</h2><p style="margin-top:10px"><b>메시지:</b> ' + msg + '</p><p><b>파일:</b> ' + url + '</p><p><b>줄:</b> ' + line + ', <b>칸:</b> ' + col + '</p></div>';
+  return true;
+};
+</script>
 <script src="config.js"></script>
 <script>
 /* ═══════════════════════════════════════════
