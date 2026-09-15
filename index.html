@@ -351,6 +351,10 @@ function updateNickChip(){
 db.ref('recipes').on('value', snap => {
   recipes = snap.val() || {};
   render();
+}, err => {
+  // 읽기 권한 등으로 구독 자체가 실패하는 경우도 화면에 보이게
+  toast('데이터를 불러오지 못했어요: ' + (err.message || err).toString().slice(0,70));
+  console.error('DB read error:', err);
 });
 
 /* ───── 탭 & 렌더 ───── */
@@ -535,7 +539,7 @@ function showForm(data={}, id=null){
     </div>
     <div style="display:flex;gap:10px">
       <button class="btn ghost" onclick="closeAdd()">닫기</button>
-      <button class="btn pink" onclick="save()">💾 저장하기</button>
+      <button class="btn pink" id="saveBtn" onclick="save()">💾 저장하기</button>
     </div>`;
   document.getElementById('addSheet').classList.add('show');
 }
@@ -543,6 +547,10 @@ function showForm(data={}, id=null){
 function save(){
   const title = document.getElementById('fTitle').value.trim();
   if(!title){ toast('음식 이름을 적어주세요!'); return; }
+
+  const saveBtn = document.getElementById('saveBtn');
+  if(saveBtn){ saveBtn.disabled = true; saveBtn.textContent = '저장 중...'; }
+
   const rec = {
     nickname,
     title,
@@ -558,6 +566,11 @@ function save(){
     closeAdd();
     toast(editingId ? '고쳤어요! ✏️' : '스크랩 완료! 🍓');
     if(!editingId) setTab('mine');
+  }).catch(err=>{
+    // 저장 실패 원인을 화면에 그대로 보여줌 (권한 문제일 가능성이 높음)
+    console.error('Firebase save error:', err);
+    toast('저장 실패: ' + (err.message || err).toString().slice(0,80));
+    if(saveBtn){ saveBtn.disabled = false; saveBtn.textContent = '💾 저장하기'; }
   });
 }
 
@@ -594,7 +607,8 @@ function closeDetail(){ document.getElementById('detailSheet').classList.remove(
 
 function removeRecipe(id){
   if(!confirm('이 레시피를 정말 지울까요?')) return;
-  db.ref('recipes/'+id).remove().then(()=>{ closeDetail(); toast('지웠어요 👋'); });
+  db.ref('recipes/'+id).remove().then(()=>{ closeDetail(); toast('지웠어요 👋'); })
+    .catch(err=>{ console.error('Firebase remove error:', err); toast('삭제 실패: ' + (err.message||err).toString().slice(0,70)); });
 }
 
 /* ───── 유틸 ───── */
